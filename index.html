@@ -1609,7 +1609,7 @@ function updatePlayer(dt) {
 
   // Acceleration / braking
   if (isAccel()) {
-    playerCar.speed = Math.min(playerCar.speed + CONFIG.playerAccel * dt, 200 / 2.237);
+    playerCar.speed = Math.min(playerCar.speed + CONFIG.playerAccel * dt, 500 / 2.237);
   } else if (isBrake()) {
     playerCar.speed = Math.max(playerCar.speed - CONFIG.playerBrake * dt, 0);
     if (playerCar.speed > 5) playBrakeSound(Math.min(1, playerCar.speed * 0.03));
