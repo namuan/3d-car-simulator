@@ -792,6 +792,7 @@ laneDefs.forEach(lane => {
 function createCarModel(color) {
   const group = new THREE.Group();
   const taillightMats = [];
+  const turnSignalMats = [];
 
   // Body
   const bodyGeo = new THREE.BoxGeometry(CONFIG.carWidth, CONFIG.carBodyHeight, CONFIG.carLength);
@@ -899,7 +900,19 @@ function createCarModel(color) {
     taillightMats.push(tlMat);
   }
 
-  return { group, taillightMats };
+  // Turn signals — amber lights at front corners
+  const tsGeo = new THREE.BoxGeometry(0.12, 0.06, 0.04);
+  for (const side of [-1, 1]) {
+    const tsMat = new THREE.MeshStandardMaterial({
+      color: 0xff8800, emissive: 0xff8800, emissiveIntensity: 0.0
+    });
+    const ts = new THREE.Mesh(tsGeo, tsMat);
+    ts.position.set(side * CONFIG.carWidth * 0.45, CONFIG.carBodyHeight * 0.55, CONFIG.carLength / 2);
+    group.add(ts);
+    turnSignalMats.push(tsMat); // index 0 = left (-1), index 1 = right (+1)
+  }
+
+  return { group, taillightMats, turnSignalMats };
 }
 
 // ============================================================
@@ -1069,7 +1082,7 @@ function spawnCar() {
   const lane = laneDefs[Math.floor(Math.random() * laneDefs.length)];
 
   const color = CONFIG.carColors[Math.floor(Math.random() * CONFIG.carColors.length)];
-  const { group: mesh, taillightMats } = createCarModel(color);
+  const { group: mesh, taillightMats, turnSignalMats } = createCarModel(color);
 
   const targetSpeed = CONFIG.carMinSpeed + Math.random() * (CONFIG.carMaxSpeed - CONFIG.carMinSpeed);
 
@@ -1090,10 +1103,14 @@ function spawnCar() {
     prevSpeed: 0,
     brakeIntensity: 0,
     taillightMats: taillightMats,
+    turnSignalMats: turnSignalMats,
     shockwaveIntensity: 0,
     shockwaveTimer: 0,
     slowdownTimer: 0,
     stuckTimer: 0,
+    // Lane change state
+    laneChange: null,      // null | { targetLane, timer, leftSignal }
+    laneChangeCooldown: 0,
   };
 
   // Check if spawn position is clear (accounting for wrap-around)
@@ -1514,6 +1531,66 @@ function updateCars(dt, simSpeed) {
     const forward = new THREE.Vector3(0, 0, 1);
     const targetQuat = new THREE.Quaternion().setFromUnitVectors(forward, lane.dirVec);
     car.mesh.quaternion.slerp(targetQuat, 0.15);
+
+    // ---- Lane change AI ----
+    car.laneChangeCooldown = Math.max(0, car.laneChangeCooldown - adjustedDt);
+
+    if (!car.laneChange && car.laneChangeCooldown <= 0 && car.speed > 2) {
+      // Check if blocked by a slower car ahead
+      const myIdx = lane.cars.indexOf(car);
+      let blocked = false;
+      if (myIdx > 0) {
+        const ahead = lane.cars[myIdx - 1];
+        if (ahead.progress - car.progress < car.length * 5 && car.speed > ahead.speed * 1.05) {
+          blocked = true;
+        }
+      }
+      // 15% chance per second if blocked, 0.5% otherwise
+      const chance = blocked ? 0.15 : 0.005;
+      if (Math.random() < chance * adjustedDt) {
+        const otherLane = car.lane === laneDefs[0] ? laneDefs[1] : laneDefs[0];
+        const leftSignal = car.lane === laneDefs[1]; // signal toward the other lane
+
+        // Check if target lane has space
+        let spaceClear = true;
+        for (const other of cars) {
+          if (other === car || other.lane !== otherLane) continue;
+          let dist = Math.abs(other.progress - car.progress);
+          if (dist > otherLane.length * 0.5) dist = otherLane.length - dist;
+          if (dist < car.length * 3.5) { spaceClear = false; break; }
+        }
+        if (spaceClear) {
+          car.laneChange = {
+            targetLane: otherLane,
+            timer: 1.5,  // ~5 blinks at ~3.3 Hz
+            leftSignal: leftSignal,
+          };
+        }
+      }
+    }
+
+    // Execute lane change or blink signals
+    if (car.laneChange) {
+      car.laneChange.timer -= adjustedDt;
+      const blinkOn = Math.floor(car.laneChange.timer * 3.3) % 2 === 0;
+      const sigIdx = car.laneChange.leftSignal ? 0 : 1;
+      car.turnSignalMats[sigIdx].emissiveIntensity = blinkOn ? 1.5 : 0.1;
+      car.turnSignalMats[1 - sigIdx].emissiveIntensity = 0;
+      car.turnSignalMats[sigIdx].color.setHex(blinkOn ? 0xffaa00 : 0x663300);
+
+      if (car.laneChange.timer <= 0) {
+        // Switch lanes
+        car.lane.cars.splice(car.lane.cars.indexOf(car), 1);
+        car.laneChange.targetLane.cars.push(car);
+        car.lane = car.laneChange.targetLane;
+        car.laneChange = null;
+        car.laneChangeCooldown = 3 + Math.random() * 5;
+        car.turnSignalMats[0].emissiveIntensity = 0;
+        car.turnSignalMats[1].emissiveIntensity = 0;
+      }
+    } else {
+      car.turnSignalMats.forEach(m => { m.emissiveIntensity = 0; });
+    }
   }
 }
 
@@ -1637,7 +1714,7 @@ function spawnInitialCars(count) {
   for (let i = 0; i < count; i++) {
     const lane = laneDefs[Math.floor(Math.random() * laneDefs.length)];
     const color = CONFIG.carColors[Math.floor(Math.random() * CONFIG.carColors.length)];
-    const { group: mesh, taillightMats } = createCarModel(color);
+    const { group: mesh, taillightMats, turnSignalMats } = createCarModel(color);
     const targetSpeed = CONFIG.carMinSpeed + Math.random() * (CONFIG.carMaxSpeed - CONFIG.carMinSpeed);
 
     // Random starting position spread across the lane
@@ -1657,10 +1734,13 @@ function spawnInitialCars(count) {
       prevSpeed: targetSpeed * 0.5,
       brakeIntensity: 0,
       taillightMats: taillightMats,
+      turnSignalMats: turnSignalMats,
       shockwaveIntensity: 0,
       shockwaveTimer: 0,
       slowdownTimer: 0,
       stuckTimer: 0,
+      laneChange: null,
+      laneChangeCooldown: 0,
     };
 
     const pos = lane.start.clone().add(lane.dirVec.clone().multiplyScalar(startProgress));
