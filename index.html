@@ -765,20 +765,24 @@ function buildTunnelRoad() {
     worldGroup.add(sw);
   }
 
-  // Road studs (cats eyes) — small reflective dots along lane lines
+  // Road studs (cats eyes) — InstancedMesh for performance
+  const studDummy = new THREE.Object3D();
+  const studCount = Math.ceil((length - 6) / 4);
+  const studGeo = new THREE.SphereGeometry(0.06, 6, 6);
   const studMat = new THREE.MeshStandardMaterial({
     color: 0xffffaa,
     emissive: 0xffffaa,
     emissiveIntensity: 0.15,
     roughness: 0.3,
   });
-  for (const offset of dividerOffsets) {
-    for (let x = -length / 2 + 3; x < length / 2 - 3; x += 4) {
-      const stud = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), studMat);
-      stud.position.set(x, 0.04, offset);
-      worldGroup.add(stud);
-    }
+  const studInstanced = new THREE.InstancedMesh(studGeo, studMat, studCount);
+  for (let i = 0; i < studCount; i++) {
+    studDummy.position.set(-length / 2 + 3 + i * 4, 0.04, 0);
+    studDummy.scale.set(1, 1, 1);
+    studDummy.updateMatrix();
+    studInstanced.setMatrixAt(i, studDummy.matrix);
   }
+  worldGroup.add(studInstanced);
 
   // ----- Lanes -----  (2 eastbound lanes, centered)
   const startX = -length / 2;
@@ -832,23 +836,39 @@ function buildScenicRoute() {
     worldGroup.add(grass);
   }
 
-  // ---- Guardrails along road edges ----
-  const railMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.4, metalness: 0.6 });
-  const railPostsMat = new THREE.MeshStandardMaterial({ color: 0x886644, roughness: 0.7 });
+  // ---- Guardrails — InstancedMesh for posts + rails ----
   const postSpacing = 3;
-
+  const postGeo = new THREE.BoxGeometry(0.12, 0.9, 0.12);
+  const railGeo = new THREE.BoxGeometry(postSpacing, 0.08, 0.1);
+  const postMat = new THREE.MeshStandardMaterial({ color: 0x886644, roughness: 0.7 });
+  const railMatInst = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.4, metalness: 0.6 });
+  
+  const postsPerSide = Math.floor(length / postSpacing);
+  const totalPosts = postsPerSide * 2;
+  
+  const postInstanced = new THREE.InstancedMesh(postGeo, postMat, totalPosts);
+  postInstanced.castShadow = true;
+  const railInstanced = new THREE.InstancedMesh(railGeo, railMatInst, totalPosts);
+  
+  const dummy3 = new THREE.Object3D();
+  let idx = 0;
   for (const side of [-1, 1]) {
-    for (let x = -length / 2; x < length / 2; x += postSpacing) {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.9, 0.12), railPostsMat);
-      post.position.set(x, 0.45, side * (halfW + 0.7));
-      post.castShadow = true;
-      worldGroup.add(post);
-
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(postSpacing, 0.08, 0.1), railMat);
-      rail.position.set(x, 0.85, side * (halfW + 0.7));
-      worldGroup.add(rail);
+    const z = side * (halfW + 0.7);
+    for (let pi = 0; pi < postsPerSide; pi++) {
+      const x = -length / 2 + pi * postSpacing;
+      dummy3.position.set(x, 0.45, z);
+      dummy3.scale.set(1, 1, 1);
+      dummy3.updateMatrix();
+      postInstanced.setMatrixAt(idx, dummy3.matrix);
+      
+      dummy3.position.set(x, 0.85, z);
+      dummy3.updateMatrix();
+      railInstanced.setMatrixAt(idx, dummy3.matrix);
+      idx++;
     }
   }
+  worldGroup.add(postInstanced);
+  worldGroup.add(railInstanced);
 
   // ---- Trees — two types: conical pines + round-canopy deciduous ----
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8B5A2B, roughness: 0.8 });
