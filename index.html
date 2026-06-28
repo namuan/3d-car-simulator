@@ -1240,6 +1240,18 @@ function restartGame() {
   playerCar = createPlayerCar();
   lastProgress = playerCar.progress;
   spawnInitialCars(20);
+
+  // Snap camera to player
+  if (viewMode === 'top') {
+    const startPos = playerCar.mesh.position.clone();
+    const startDir = playerCar.lane.dirVec.clone();
+    const camStart = startPos.clone()
+      .add(startDir.clone().multiplyScalar(-chaseDistance))
+      .add(new THREE.Vector3(0, chaseDistance * 0.7, 0));
+    camera.position.copy(camStart);
+    controls.target.copy(startPos);
+    controls.update();
+  }
 }
 
 function updateCars(dt, simSpeed) {
@@ -1540,6 +1552,16 @@ function spawnInitialCars(count) {
 playerCar = createPlayerCar();
 lastProgress = playerCar.progress;
 spawnInitialCars(20);
+
+// Snap camera to player immediately (chase cam position)
+const startPos = playerCar.mesh.position.clone();
+const startDir = playerCar.lane.dirVec.clone();
+const camStart = startPos.clone()
+  .add(startDir.clone().multiplyScalar(-chaseDistance))
+  .add(new THREE.Vector3(0, chaseDistance * 0.7, 0));
+camera.position.copy(camStart);
+controls.target.copy(startPos);
+controls.update();
 
 // Restart button
 document.getElementById('btn-restart').addEventListener('click', restartGame);
