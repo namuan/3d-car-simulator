@@ -194,6 +194,19 @@
     margin-top: 4px;
   }
 
+  /* --- Road end warning --- */
+  #road-warning {
+    position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+    background: rgba(255,60,20,0.85); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,80,40,0.5); border-radius: 10px;
+    padding: 6px 18px; font-size: 13px; font-weight: 700;
+    color: #fff; z-index: 20; white-space: nowrap;
+    display: none; text-align: center;
+    animation: roadWarnPulse 0.5s ease-in-out infinite alternate;
+  }
+  #road-warning.active { display: block; }
+  @keyframes roadWarnPulse { from { background: rgba(255,60,20,0.85); } to { background: rgba(255,80,30,0.95); } }
+
   /* --- Game Over overlay --- */
   #game-over {
     position: fixed;
@@ -397,6 +410,9 @@
     <span class="stat">📏 <span class="value" id="score">0</span>m</span>
     <span class="stat">🚗 <span class="value" id="car-count">0</span></span>
   </div>
+
+  <!-- Road end warning -->
+  <div id="road-warning">⚠ Road end in <span id="road-warn-dist">0</span>m — Congestion ahead</div>
 
   <!-- Speed gauge -->
   <div id="speed-gauge">
@@ -1716,6 +1732,17 @@ function updatePlayer(dt) {
     if (gap > 0 && gap < playerCar.length * 2.5 && playerCar.speed < other.speed * 0.7) {
       if (hornTimer <= 0) { playHorn(); hornTimer = 2.5; }
     }
+  }
+
+  // Road end warning — alert when approaching wrap point
+  const distToEnd = playerCar.lane.length - playerCar.progress;
+  const WARN_DIST = 400;
+  const warnEl = document.getElementById('road-warning');
+  if (distToEnd < WARN_DIST) {
+    warnEl.querySelector('#road-warn-dist').textContent = Math.round(distToEnd);
+    warnEl.classList.add('active');
+  } else {
+    warnEl.classList.remove('active');
   }
 
   // Check collisions with AI cars
