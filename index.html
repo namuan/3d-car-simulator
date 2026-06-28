@@ -329,7 +329,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 //  CONFIGURATION
 // ============================================================
 const CONFIG = {
-  roadLength: 3200,
+  roadLength: 6400,
   roadHalfWidth: 3.75,
   laneWidth: 3.5,
   carColors: [
@@ -1172,11 +1172,16 @@ function updatePlayer(dt) {
   }
   lastProgress = playerCar.progress;
 
-  // Update mesh position (smooth lane transition)
+  // Update mesh position
   const targetPos = playerCar.lane.start.clone()
     .add(playerCar.lane.dirVec.clone().multiplyScalar(playerCar.progress));
   targetPos.y = 0.1;
-  playerCar.mesh.position.lerp(targetPos, 0.25);
+  const dist = playerCar.mesh.position.distanceTo(targetPos);
+  if (dist > 100) {
+    playerCar.mesh.position.copy(targetPos);  // instant snap on wrap
+  } else {
+    playerCar.mesh.position.lerp(targetPos, 0.25);  // smooth lane changes
+  }
 
   const forward = new THREE.Vector3(0, 0, 1);
   const targetQuat = new THREE.Quaternion().setFromUnitVectors(forward, playerCar.lane.dirVec);
