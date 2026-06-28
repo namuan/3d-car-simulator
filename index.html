@@ -519,6 +519,7 @@ let audioCtx = null;
 let engineOsc = null, engineGain = null, engineFilter = null;
 let hornTimer = 0;
 let fireGroup = null;
+let gameOverAngle = 0;
 
 function ensureAudio() {
   if (!audioCtx) {
@@ -1524,21 +1525,9 @@ function triggerGameOver() {
   console.log('🔥 Fire at', fireGroup.position.toArray().map(v => v.toFixed(1)));
   scene.add(fireGroup);
 
-  // Cinematic orbit — circle around the burning car
-  controls.target.copy(firePos);
-  controls.enabled = true;
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.08;
-  controls.autoRotate = true;
-  controls.autoRotateSpeed = 0.6;
-  controls.minDistance = 4;
-  controls.maxDistance = 12;
-  // Position camera at a nice angle
-  const orbitDist = 7;
-  camera.position.copy(firePos).add(new THREE.Vector3(orbitDist * 0.6, orbitDist * 0.5, orbitDist * 0.6));
-  camera.lookAt(firePos);
-  controls.target.set(firePos.x, firePos.y, firePos.z);
-  controls.update();
+  // Manual cinematic orbit — disable controls, fly camera ourselves
+  controls.enabled = false;
+  gameOverAngle = 0;
 
   // Show game over with a 1-second delay
   setTimeout(() => {
@@ -1574,7 +1563,6 @@ function restartGame() {
   if (viewMode === 'fpv') {
     controls.enabled = false;
   }
-  controls.autoRotate = false;
 
   // Hide game over
   document.getElementById('game-over').classList.remove('active');
@@ -1862,11 +1850,19 @@ let lastTime = 0;
 function animate(time) {
   if (gameOver) {
     // Animate fire
+    const dt = 0.016; // ~60fps approximation for orbit
     if (fireGroup && playerCar) {
       fireGroup.position.copy(playerCar.mesh.position);
       fireGroup.position.y += 1.0;
-      // Update orbit target to track car
-      controls.target.copy(fireGroup.position);
+      const firePos = fireGroup.position;
+      // Manual orbit — camera circles the burning car
+      gameOverAngle += dt * 0.6;
+      const orbitDist = 6;
+      const camX = firePos.x + Math.cos(gameOverAngle) * orbitDist;
+      const camZ = firePos.z + Math.sin(gameOverAngle) * orbitDist;
+      const camY = firePos.y + 2.5 + Math.sin(gameOverAngle * 0.7) * 1.5;
+      camera.position.set(camX, camY, camZ);
+      camera.lookAt(firePos);
       const t = time * 0.001;
       fireGroup.children.forEach(flame => {
         const u = flame.userData;
@@ -1875,7 +1871,6 @@ function animate(time) {
         flame.material.opacity = 0.5 + Math.sin(t * u.speed * 4 + u.phase + 1) * 0.3;
       });
     }
-    controls.update();
     renderer.render(scene, camera);
     requestAnimationFrame(animate);
     return;
@@ -1904,9 +1899,16 @@ function animate(time) {
     if (fireGroup && playerCar) {
       fireGroup.position.copy(playerCar.mesh.position);
       fireGroup.position.y += 1.0;
-      controls.target.copy(fireGroup.position);
+      const firePos = fireGroup.position;
+      gameOverAngle += dt * 0.6;
+      const orbitDist = 6;
+      camera.position.set(
+        firePos.x + Math.cos(gameOverAngle) * orbitDist,
+        firePos.y + 2.5 + Math.sin(gameOverAngle * 0.7) * 1.5,
+        firePos.z + Math.sin(gameOverAngle) * orbitDist
+      );
+      camera.lookAt(firePos);
     }
-    controls.update();
     renderer.render(scene, camera);
     requestAnimationFrame(animate);
     return;
