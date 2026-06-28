@@ -351,7 +351,7 @@
 
   <!-- Bottom controls -->
   <div id="controls">
-    <span style="color:#888;font-size:11px">W/↑ Accel &nbsp; S/↓/Space Brake &nbsp; A/← D/→ Lane &nbsp; <b>V</b> View &nbsp; <b>R</b> Reverse</span>
+    <span style="color:#888;font-size:11px">↑ Accel &nbsp; ↓/Space Brake &nbsp; ← → Lane &nbsp; <b>V</b> View &nbsp; <b>R</b> Reverse &nbsp; <b>N</b> Night</span>
     <button class="btn" id="btn-view">🎥 FPV</button>
     <button class="btn" id="btn-time">🌙 Night</button>
     <button class="btn" id="btn-reset">⟳ Reset</button>
@@ -502,7 +502,7 @@ let viewMode = 'fpv'; // 'top' or 'fpv'
 let timeOfDay = 'day';  // 'day' or 'night'
 let chaseDistance = 3;
 // Keyboard state
-const keys = { w: false, s: false, a: false, d: false, ' ': false, arrowup: false, arrowdown: false, arrowleft: false, arrowright: false };
+const keys = { ' ': false, arrowup: false, arrowdown: false, arrowleft: false, arrowright: false };
 
 const RL = CONFIG.roadHalfWidth;
 const LW = CONFIG.laneWidth;
@@ -1079,25 +1079,17 @@ document.addEventListener('keydown', (e) => {
   ensureAudio();
   const k = e.key.toLowerCase();
   if (k in keys) { keys[k] = true; e.preventDefault(); }
-  if (k === 'arrowup') { keys.arrowup = true; e.preventDefault(); }
-  if (k === 'arrowdown') { keys.arrowdown = true; e.preventDefault(); }
-  if (k === 'arrowleft') { keys.arrowleft = true; e.preventDefault(); }
-  if (k === 'arrowright') { keys.arrowright = true; e.preventDefault(); }
 });
 
 document.addEventListener('keyup', (e) => {
   const k = e.key.toLowerCase();
   if (k in keys) { keys[k] = false; }
-  if (k === 'arrowup') keys.arrowup = false;
-  if (k === 'arrowdown') keys.arrowdown = false;
-  if (k === 'arrowleft') keys.arrowleft = false;
-  if (k === 'arrowright') keys.arrowright = false;
 });
 
-function isAccel() { return keys.w || keys.arrowup; }
-function isBrake() { return keys.s || keys.arrowdown || keys[' ']; }
-function isLeft()  { return keys.a || keys.arrowleft; }
-function isRight() { return keys.d || keys.arrowright; }
+function isAccel() { return keys.arrowup; }
+function isBrake() { return keys.arrowdown || keys[' ']; }
+function isLeft()  { return keys.arrowleft; }
+function isRight() { return keys.arrowright; }
 
 // Reverse travel direction
 function reverseDirection() {
@@ -1487,8 +1479,6 @@ function triggerGameOver() {
   // Crash sound + silence engine
   playCrashSound();
   if (engineGain) engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
-  document.getElementById('game-over').classList.add('active');
-  document.getElementById('final-score').textContent = Math.round(score);
 
   // Flash all cars red briefly
   for (const c of cars) {
@@ -1499,6 +1489,12 @@ function triggerGameOver() {
       }
     });
   }
+
+  // Show game over with a 1-second delay
+  setTimeout(() => {
+    document.getElementById('final-score').textContent = Math.round(score);
+    document.getElementById('game-over').classList.add('active');
+  }, 1000);
 }
 
 function restartGame() {
