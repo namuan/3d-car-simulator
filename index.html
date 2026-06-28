@@ -328,7 +328,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 //  CONFIGURATION
 // ============================================================
 const CONFIG = {
-  roadLength: 1600,
+  roadLength: 3200,
   roadHalfWidth: 3.75,
   laneWidth: 3.5,
   carColors: [
@@ -367,7 +367,7 @@ const CONFIG = {
 // ============================================================
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x050508);
-scene.fog = new THREE.FogExp2(0x050508, 0.0018);
+scene.fog = new THREE.FogExp2(0x050508, 0.005);
 
 const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1200);
 camera.position.set(0, 75, 0.01);
@@ -389,6 +389,10 @@ controls.maxPolarAngle = Math.PI / 2.05;
 controls.minDistance = 5;
 controls.maxDistance = 200;
 controls.update();
+
+// World group for tunnel/road geometry (shifted for infinite wrapping)
+const worldGroup = new THREE.Group();
+scene.add(worldGroup);
 
 // ============================================================
 //  TUNNEL LIGHTING
@@ -430,7 +434,7 @@ const roadBase = new THREE.Mesh(new THREE.PlaneGeometry(CONFIG.roadLength + 40, 
 roadBase.rotation.x = -Math.PI / 2;
 roadBase.position.y = -0.05;
 roadBase.receiveShadow = true;
-scene.add(roadBase);
+worldGroup.add(roadBase);
 
 // ============================================================
 //  ROAD SYSTEM — single 4‑lane tunnel road (X‑axis)
@@ -464,7 +468,7 @@ function buildTunnelRoad() {
   road.rotation.x = -Math.PI / 2;
   road.position.set(0, 0, 0);
   road.receiveShadow = true;
-  scene.add(road);
+  worldGroup.add(road);
 
   // Lane markings (dashed) - center divider only
   const lineMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.6 });
@@ -482,7 +486,7 @@ function buildTunnelRoad() {
       );
       dash.rotation.x = -Math.PI / 2;
       dash.position.set(pos, 0.01, offset);
-      scene.add(dash);
+      worldGroup.add(dash);
     }
   }
 
@@ -495,7 +499,7 @@ function buildTunnelRoad() {
     );
     edge.rotation.x = -Math.PI / 2;
     edge.position.set(0, 0.015, side * (halfW - 0.15));
-    scene.add(edge);
+    worldGroup.add(edge);
   }
 
   // Sidewalks / kerbs
@@ -506,7 +510,7 @@ function buildTunnelRoad() {
     );
     sw.position.set(0, 0.075, side * (halfW + 0.4));
     sw.receiveShadow = true;
-    scene.add(sw);
+    worldGroup.add(sw);
   }
 
   // Road studs (cats eyes) — small reflective dots along lane lines
@@ -520,7 +524,7 @@ function buildTunnelRoad() {
     for (let x = -length / 2 + 3; x < length / 2 - 3; x += 4) {
       const stud = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), studMat);
       stud.position.set(x, 0.04, offset);
-      scene.add(stud);
+      worldGroup.add(stud);
     }
   }
 
@@ -589,7 +593,7 @@ function buildFullTunnel() {
     wall.position.set(midX, height / 2, side * tunnelHalfW);
     wall.castShadow = true;
     wall.receiveShadow = true;
-    scene.add(wall);
+    worldGroup.add(wall);
 
     // Dark base strip (bottom 0.6 units)
     const base = new THREE.Mesh(
@@ -597,7 +601,7 @@ function buildFullTunnel() {
       baseMat
     );
     base.position.set(midX, 0.3, side * tunnelHalfW);
-    scene.add(base);
+    worldGroup.add(base);
 
     // Horizontal wall stripes every 8 units (depth reference)
     for (let x = -length / 2 + 2; x < length / 2 - 2; x += 8) {
@@ -607,7 +611,7 @@ function buildFullTunnel() {
         stripeMat
       );
       s1.position.set(x, 1.5, side * (tunnelHalfW + 0.01));
-      scene.add(s1);
+      worldGroup.add(s1);
 
       // Stripe at 3.0m height
       const s2 = new THREE.Mesh(
@@ -615,7 +619,7 @@ function buildFullTunnel() {
         stripeMat
       );
       s2.position.set(x, 3.0, side * (tunnelHalfW + 0.01));
-      scene.add(s2);
+      worldGroup.add(s2);
     }
   }
 
@@ -628,7 +632,7 @@ function buildFullTunnel() {
   );
   roadDark.rotation.x = -Math.PI / 2;
   roadDark.position.set(midX, 0.005, 0);
-  scene.add(roadDark);
+  worldGroup.add(roadDark);
 
   // ---- Tunnel ribs / arch frames (every ribSpacing) ----
   const ribSpacing = CONFIG.tunnelRibSpacing;
@@ -640,7 +644,7 @@ function buildFullTunnel() {
     );
     pillar.position.set(x, height / 2, -tunnelHalfW + 0.2);
     pillar.castShadow = true;
-    scene.add(pillar);
+    worldGroup.add(pillar);
 
     // Right pillar
     const pillarR = new THREE.Mesh(
@@ -649,7 +653,7 @@ function buildFullTunnel() {
     );
     pillarR.position.set(x, height / 2, tunnelHalfW - 0.2);
     pillarR.castShadow = true;
-    scene.add(pillarR);
+    worldGroup.add(pillarR);
   }
 
   // ---- Tunnel lights ---- (removed — ceiling is open)
@@ -663,7 +667,7 @@ function buildFullTunnel() {
         emergencyMat
       );
       sign.position.set(x, 2.8, side * (tunnelHalfW + 0.02));
-      scene.add(sign);
+      worldGroup.add(sign);
 
       // Small "exit" box below
       const exitBox = new THREE.Mesh(
@@ -671,7 +675,49 @@ function buildFullTunnel() {
         new THREE.MeshStandardMaterial({ color: 0x00aa33, roughness: 0.5 })
       );
       exitBox.position.set(x, 1.2, side * (tunnelHalfW + 0.05));
-      scene.add(exitBox);
+      worldGroup.add(exitBox);
+    }
+  }
+
+  // ---- Tunnel extensions — detailed walls extending beyond active area ----
+  const extLength = 2000;
+  for (const side of [-1, 1]) {
+    // Extended road base
+    const extRoadBase = new THREE.Mesh(
+      new THREE.PlaneGeometry(extLength, CONFIG.roadHalfWidth * 2 + 3),
+      new THREE.MeshStandardMaterial({ color: 0x111122, roughness: 0.95 })
+    );
+    extRoadBase.rotation.x = -Math.PI / 2;
+    extRoadBase.position.set(side * (length / 2 + extLength / 2), -0.04, 0);
+    extRoadBase.receiveShadow = true;
+    worldGroup.add(extRoadBase);
+    // Extended side walls with details
+    for (const wSide of [-1, 1]) {
+      const extWall = new THREE.Mesh(new THREE.BoxGeometry(extLength, height, wallThick), wallMat);
+      extWall.position.set(side * (length / 2 + extLength / 2), height / 2, wSide * tunnelHalfW);
+      extWall.castShadow = true;
+      extWall.receiveShadow = true;
+      worldGroup.add(extWall);
+      // Base strip
+      const extBase = new THREE.Mesh(
+        new THREE.BoxGeometry(extLength, 0.6, wallThick + 0.02),
+        baseMat
+      );
+      extBase.position.set(side * (length / 2 + extLength / 2), 0.3, wSide * tunnelHalfW);
+      worldGroup.add(extBase);
+      // Horizontal stripes every 8m (depth reference)
+      const extStart = side > 0 ? length / 2 : -(length / 2 + extLength);
+      const extEnd = side > 0 ? length / 2 + extLength : -length / 2;
+      for (let x = extStart + 2; x < extEnd - 2; x += 8) {
+        for (const h of [1.5, 3.0]) {
+          const stripe = new THREE.Mesh(
+            new THREE.BoxGeometry(0.6, 0.08, 0.05),
+            stripeMat
+          );
+          stripe.position.set(x, h, wSide * (tunnelHalfW + 0.01));
+          worldGroup.add(stripe);
+        }
+      }
     }
   }
 
