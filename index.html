@@ -1230,8 +1230,16 @@ function updatePlayer(dt) {
   mphEl.className = 'mph' + (isOverspeed ? ' overspeed' : mph < CONFIG.minSafeSpeed ? ' warn' : '');
   document.getElementById('overspeed-label').classList.toggle('active', isOverspeed);
   document.getElementById('score').textContent = Math.round(score);
-  document.getElementById('lane-dot-0').classList.toggle('active', playerCar.lane === laneDefs[0]);
-  document.getElementById('lane-dot-1').classList.toggle('active', playerCar.lane === laneDefs[1]);
+  // Lane indicator — account for car direction
+  if (playerCar) {
+    const leftVec = new THREE.Vector3().crossVectors(
+      playerCar.lane.dirVec, new THREE.Vector3(0, 1, 0)
+    ).multiplyScalar(-1);
+    const leftLane = leftVec.z > 0 ? laneDefs[1] : laneDefs[0];
+    const rightLane = leftVec.z > 0 ? laneDefs[0] : laneDefs[1];
+    document.getElementById('lane-dot-0').classList.toggle('active', playerCar.lane === leftLane);
+    document.getElementById('lane-dot-1').classList.toggle('active', playerCar.lane === rightLane);
+  }
 }
 
 function triggerGameOver() {
