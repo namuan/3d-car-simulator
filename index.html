@@ -386,7 +386,7 @@ controls.target.set(0, 0, 0);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.maxPolarAngle = Math.PI / 2.05;
-controls.minDistance = 5;
+controls.minDistance = 1;
 controls.maxDistance = 200;
 controls.update();
 
@@ -954,15 +954,12 @@ document.addEventListener('keydown', (e) => {
 function toggleView() {
   viewMode = viewMode === 'top' ? 'fpv' : 'top';
   document.getElementById('btn-view').textContent = viewMode === 'top' ? '🎥 FPV' : '🔝 Top';
-  controls.enabled = viewMode !== 'fpv';
+  controls.enabled = (viewMode === 'fpv');
   if (viewMode === 'top' && playerCar) {
-    // Position the camera behind and above the player
     const pos = playerCar.mesh.position.clone();
     const dir = playerCar.lane.dirVec.clone();
-    const offset = dir.clone().multiplyScalar(-chaseDistance).add(new THREE.Vector3(0, chaseDistance * 0.7, 0));
-    camera.position.copy(pos.clone().add(offset));
-    controls.target.copy(pos);
-    controls.update();
+    camera.position.copy(pos.clone().add(dir.clone().multiplyScalar(-chaseDistance)).add(new THREE.Vector3(0, chaseDistance * 0.7, 0)));
+    camera.lookAt(pos);
   }
 }
 
@@ -973,6 +970,14 @@ document.addEventListener('keydown', (e) => {
   }
 });
 document.getElementById('btn-view').addEventListener('click', toggleView);
+
+// Zoom in/out via scroll wheel in chase cam mode
+renderer.domElement.addEventListener('wheel', (e) => {
+  if (viewMode === 'top' && playerCar && !gameOver) {
+    chaseDistance = Math.max(2, Math.min(50, chaseDistance + e.deltaY * 0.01));
+    e.preventDefault();
+  }
+}, { passive: false });
 
 // ============================================================
 //  CAR SPAWNING & MANAGEMENT
@@ -1249,8 +1254,7 @@ function restartGame() {
       .add(startDir.clone().multiplyScalar(-chaseDistance))
       .add(new THREE.Vector3(0, chaseDistance * 0.7, 0));
     camera.position.copy(camStart);
-    controls.target.copy(startPos);
-    controls.update();
+    camera.lookAt(startPos);
   }
 }
 
@@ -1489,10 +1493,14 @@ function animate(time) {
         .add(new THREE.Vector3(0, 1.5, 0));
       camera.lookAt(lookTarget);
     } else {
-      // Top-down view — orbit controls follow the player
+      // Top-down chase cam — follow behind and above the player
       const pos = playerCar.mesh.position.clone();
-      controls.target.lerp(pos, 0.08);
-      controls.update();
+      const dir = playerCar.lane.dirVec.clone();
+      const idealPos = pos.clone()
+        .add(dir.clone().multiplyScalar(-chaseDistance))
+        .add(new THREE.Vector3(0, chaseDistance * 0.7, 0));
+      camera.position.lerp(idealPos, 0.15);
+      camera.lookAt(pos);
     }
   }
 
@@ -1560,8 +1568,7 @@ const camStart = startPos.clone()
   .add(startDir.clone().multiplyScalar(-chaseDistance))
   .add(new THREE.Vector3(0, chaseDistance * 0.7, 0));
 camera.position.copy(camStart);
-controls.target.copy(startPos);
-controls.update();
+camera.lookAt(startPos);
 
 // Restart button
 document.getElementById('btn-restart').addEventListener('click', restartGame);
