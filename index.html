@@ -1082,11 +1082,20 @@ function updatePlayer(dt) {
   if (playerCar.laneChangeTimer > 0) {
     playerCar.laneChangeTimer -= dt;
   } else {
-    if (isLeft() && playerCar.lane !== laneDefs[0]) {
-      playerCar.lane = laneDefs[0];
+    // Determine which lane is "left" relative to the car's facing direction
+    const leftVec = new THREE.Vector3().crossVectors(
+      playerCar.lane.dirVec, new THREE.Vector3(0, 1, 0)
+    ).multiplyScalar(-1).normalize();
+    // Lane with higher Z component is the "leftwards" lane (from camera view)
+    const leftIsHighZ = leftVec.z > 0;
+    const leftLane = leftIsHighZ ? laneDefs[1] : laneDefs[0];
+    const rightLane = leftIsHighZ ? laneDefs[0] : laneDefs[1];
+
+    if (isLeft() && playerCar.lane !== leftLane) {
+      playerCar.lane = leftLane;
       playerCar.laneChangeTimer = 0.3;
-    } else if (isRight() && playerCar.lane !== laneDefs[1]) {
-      playerCar.lane = laneDefs[1];
+    } else if (isRight() && playerCar.lane !== rightLane) {
+      playerCar.lane = rightLane;
       playerCar.laneChangeTimer = 0.3;
     }
   }
