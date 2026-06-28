@@ -817,22 +817,19 @@ function buildScenicRoute() {
   const vergeMat = new THREE.MeshStandardMaterial({ color: 0x8B7355, roughness: 0.95 });
   const grassVergeMat = new THREE.MeshStandardMaterial({ color: 0x5a8240, roughness: 0.85 });
   for (const side of [-1, 1]) {
-    // Dirt verge
+    // Dirt verge — single plane
     const verge = new THREE.Mesh(new THREE.PlaneGeometry(length, 1.5), vergeMat);
     verge.rotation.x = -Math.PI / 2;
     verge.position.set(0, -0.06, side * (halfW + 0.75));
     verge.receiveShadow = true;
     worldGroup.add(verge);
 
-    // Grass strip outside verge
-    for (let seg = 0; seg < 60; seg++) {
-      const segX = -length / 2 + seg * (length / 60);
-      const grass = new THREE.Mesh(new THREE.PlaneGeometry(length / 60, 2.5), grassVergeMat);
-      grass.rotation.x = -Math.PI / 2;
-      grass.position.set(segX, -0.04, side * (halfW + 2.75));
-      grass.receiveShadow = true;
-      worldGroup.add(grass);
-    }
+    // Grass strip — single plane
+    const grass = new THREE.Mesh(new THREE.PlaneGeometry(length, 4.5), grassVergeMat);
+    grass.rotation.x = -Math.PI / 2;
+    grass.position.set(0, -0.04, side * (halfW + 2.75));
+    grass.receiveShadow = true;
+    worldGroup.add(grass);
   }
 
   // ---- Guardrails along road edges ----
@@ -952,59 +949,81 @@ function buildScenicRoute() {
     }
   }
 
-  // ---- Bushes — clustered in groups of 2-4 ----
-  const bushColors = [0x3a6b20, 0x4a7a2e, 0x558a35, 0x2d5a1a, 0x609040];
+  // ---- Bushes — clustered (InstancedMesh for performance) ----
+  const bushCount = PERF.bushCount;
+  const bushGeo = new THREE.SphereGeometry(0.4, 6, 5);
+  const bushBaseMat = new THREE.MeshStandardMaterial({ color: 0x3a6b20, roughness: 0.8 });
+  const bushInstanced = new THREE.InstancedMesh(bushGeo, bushBaseMat, bushCount);
+  bushInstanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  const bushColorsHex = [0x3a6b20, 0x4a7a2e, 0x558a35, 0x2d5a1a, 0x609040];
+  
+  let bushIdx = 0;
   for (let i = 0; i < PERF.bushCount / 3; i++) {
     const bx = (Math.random() - 0.5) * length;
     const bside = Math.random() > 0.5 ? 1 : -1;
     const bz = bside * (halfW + 3 + Math.random() * 20);
     const clusterSize = 2 + Math.floor(Math.random() * 3);
-    for (let j = 0; j < clusterSize; j++) {
-      const bushMat = new THREE.MeshStandardMaterial({
-        color: bushColors[Math.floor(Math.random() * bushColors.length)],
-        roughness: 0.8,
-      });
-      const bush = new THREE.Mesh(new THREE.SphereGeometry(0.25 + Math.random() * 0.4, 6, 5), bushMat);
-      bush.position.set(bx + (Math.random() - 0.5) * 1.5, 0.15 + Math.random() * 0.1, bz + (Math.random() - 0.5) * 1.5);
-      bush.scale.y = 0.55 + Math.random() * 0.15;
-      worldGroup.add(bush);
+    for (let j = 0; j < clusterSize && bushIdx < bushCount; j++) {
+      dummy.position.set(
+        bx + (Math.random() - 0.5) * 1.5,
+        0.15 + Math.random() * 0.1,
+        bz + (Math.random() - 0.5) * 1.5
+      );
+      dummy.scale.set(0.6 + Math.random() * 0.6, 0.3 + Math.random() * 0.3, 0.6 + Math.random() * 0.6);
+      dummy.updateMatrix();
+      bushInstanced.setMatrixAt(bushIdx, dummy.matrix);
+      bushInstanced.setColorAt(bushIdx, new THREE.Color(bushColorsHex[Math.floor(Math.random() * bushColorsHex.length)]));
+      bushIdx++;
     }
   }
+  // Fill remaining instances off-screen
+  for (; bushIdx < bushCount; bushIdx++) {
+    dummy.position.set(0, -100, 0);
+    dummy.scale.set(0, 0, 0);
+    dummy.updateMatrix();
+    bushInstanced.setMatrixAt(bushIdx, dummy.matrix);
+  }
+  bushInstanced.instanceColor.needsUpdate = true;
+  worldGroup.add(bushInstanced);
 
-  // ---- Wildflowers near road verge ----
-  const flowerColors = [0xff4488, 0xffcc44, 0xff8800, 0xee4499, 0xffff66, 0xcc44ff, 0xff6666];
-  for (let i = 0; i < isMobile ? 100 : 300; i++) {
+  // ---- Wildflowers near road verge (InstancedMesh for performance) ----
+  const flowerCount = isMobile ? 100 : 300;
+  const flowerGeo = new THREE.SphereGeometry(0.05, 3, 2);
+  const flowerMat = new THREE.MeshStandardMaterial({ color: 0xff4488, roughness: 0.5 });
+  const flowerInstanced = new THREE.InstancedMesh(flowerGeo, flowerMat, flowerCount);
+  flowerInstanced.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  const dummy = new THREE.Object3D();
+  const flowerColorsHex = [0xff4488, 0xffcc44, 0xff8800, 0xee4499, 0xffff66, 0xcc44ff, 0xff6666];
+  for (let i = 0; i < flowerCount; i++) {
     const fx = (Math.random() - 0.5) * length;
     const fSide = Math.random() > 0.5 ? 1 : -1;
     const fz = fSide * (halfW + 1.8 + Math.random() * 3);
-    const flower = new THREE.Mesh(
-      new THREE.SphereGeometry(0.04, 3, 2),
-      new THREE.MeshStandardMaterial({
-        color: flowerColors[Math.floor(Math.random() * flowerColors.length)],
-        emissive: flowerColors[Math.floor(Math.random() * flowerColors.length)],
-        emissiveIntensity: 0.3,
-        roughness: 0.5,
-      })
-    );
-    flower.position.set(fx, 0.08 + Math.random() * 0.1, fz);
-    worldGroup.add(flower);
+    dummy.position.set(fx, 0.08 + Math.random() * 0.1, fz);
+    dummy.scale.setScalar(0.6 + Math.random() * 1.0);
+    dummy.updateMatrix();
+    flowerInstanced.setMatrixAt(i, dummy.matrix);
+    flowerInstanced.setColorAt(i, new THREE.Color(flowerColorsHex[Math.floor(Math.random() * flowerColorsHex.length)]));
   }
+  flowerInstanced.instanceColor.needsUpdate = true;
+  worldGroup.add(flowerInstanced);
 
-  // ---- Plains / ground planes with color variation ----
+  // ---- Plains / ground planes on both sides ----
+  const plainMat = new THREE.MeshStandardMaterial({ color: 0x4a7a2e, roughness: 0.9 });
+  const fieldMat = new THREE.MeshStandardMaterial({ color: 0x558a3a, roughness: 0.9 });
   for (const side of [-1, 1]) {
-    for (let col = 0; col < 6; col++) {
-      const colWidth = 10;
-      const greenShade = [0x4a7a2e, 0x558a3a, 0x3d6b22, 0x5a9040, 0x4a8030, 0x609545];
-      const colMat = new THREE.MeshStandardMaterial({
-        color: greenShade[col % greenShade.length],
-        roughness: 0.9,
-      });
-      const strip = new THREE.Mesh(new THREE.PlaneGeometry(length, colWidth), colMat);
-      strip.rotation.x = -Math.PI / 2;
-      strip.position.set(0, -0.1, side * (halfW + 4 + col * colWidth + colWidth / 2));
-      strip.receiveShadow = true;
-      worldGroup.add(strip);
-    }
+    // Near plain (darker)
+    const near = new THREE.Mesh(new THREE.PlaneGeometry(length, 30), plainMat);
+    near.rotation.x = -Math.PI / 2;
+    near.position.set(0, -0.1, side * (halfW + 4 + 15));
+    near.receiveShadow = true;
+    worldGroup.add(near);
+
+    // Far plain (lighter — gives depth)
+    const far = new THREE.Mesh(new THREE.PlaneGeometry(length, 30), fieldMat);
+    far.rotation.x = -Math.PI / 2;
+    far.position.set(0, -0.1, side * (halfW + 4 + 45));
+    far.receiveShadow = true;
+    worldGroup.add(far);
   }
 
   // ---- Mounds / gentle hills ----
