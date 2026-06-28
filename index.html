@@ -1480,15 +1480,12 @@ function triggerGameOver() {
   playCrashSound();
   if (engineGain) engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
 
-  // Flash all cars red briefly
-  for (const c of cars) {
-    c.mesh.children.forEach(child => {
-      if (child.isMesh && child.material && child.material.emissive) {
-        child.material.emissive = new THREE.Color(0xff0000);
-        child.material.emissiveIntensity = 0.8;
-      }
-    });
-  }
+  // Screen flash — red overlay
+  const flash = document.createElement('div');
+  flash.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,0,0,0.4);z-index:200;pointer-events:none;transition:opacity 0.4s;';
+  document.body.appendChild(flash);
+  requestAnimationFrame(() => { flash.style.opacity = '0'; });
+  setTimeout(() => flash.remove(), 500);
 
   // Show game over with a 1-second delay
   setTimeout(() => {
