@@ -813,6 +813,28 @@ function buildScenicRoute() {
   const length = CONFIG.roadLength;
   const halfW = CONFIG.roadHalfWidth;
 
+  // ---- Road verge — dirt shoulder next to road ----
+  const vergeMat = new THREE.MeshStandardMaterial({ color: 0x8B7355, roughness: 0.95 });
+  const grassVergeMat = new THREE.MeshStandardMaterial({ color: 0x5a8240, roughness: 0.85 });
+  for (const side of [-1, 1]) {
+    // Dirt verge
+    const verge = new THREE.Mesh(new THREE.PlaneGeometry(length, 1.5), vergeMat);
+    verge.rotation.x = -Math.PI / 2;
+    verge.position.set(0, -0.06, side * (halfW + 0.75));
+    verge.receiveShadow = true;
+    worldGroup.add(verge);
+
+    // Grass strip outside verge
+    for (let seg = 0; seg < 60; seg++) {
+      const segX = -length / 2 + seg * (length / 60);
+      const grass = new THREE.Mesh(new THREE.PlaneGeometry(length / 60, 2.5), grassVergeMat);
+      grass.rotation.x = -Math.PI / 2;
+      grass.position.set(segX, -0.04, side * (halfW + 2.75));
+      grass.receiveShadow = true;
+      worldGroup.add(grass);
+    }
+  }
+
   // ---- Guardrails along road edges ----
   const railMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, roughness: 0.4, metalness: 0.6 });
   const railPostsMat = new THREE.MeshStandardMaterial({ color: 0x886644, roughness: 0.7 });
@@ -820,117 +842,173 @@ function buildScenicRoute() {
 
   for (const side of [-1, 1]) {
     for (let x = -length / 2; x < length / 2; x += postSpacing) {
-      // Post
       const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.9, 0.12), railPostsMat);
       post.position.set(x, 0.45, side * (halfW + 0.7));
       post.castShadow = true;
       worldGroup.add(post);
 
-      // Rail bar
-      const railLen = postSpacing;
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(railLen, 0.08, 0.1), railMat);
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(postSpacing, 0.08, 0.1), railMat);
       rail.position.set(x, 0.85, side * (halfW + 0.7));
       worldGroup.add(rail);
     }
   }
 
-  // ---- Trees along both sides ----
+  // ---- Trees — two types: conical pines + round-canopy deciduous ----
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x8B5A2B, roughness: 0.8 });
-  const foliageColors = [0x2d5a1e, 0x3a7a25, 0x1f4f0f, 0x4a8c2a, 0x226618];
+  const trunkMatLight = new THREE.MeshStandardMaterial({ color: 0xA0806A, roughness: 0.7 });
+  const pineColors = [0x2d5a1e, 0x3a7a25, 0x1f4f0f, 0x4a8c2a, 0x226618];
+  const deciduousColors = [0x3d7a28, 0x5a9a3a, 0x4a8c32, 0x6aaa44, 0x358020];
+  const autumnColors = [0xcc7733, 0xdd9944, 0xbb6622, 0xaa8833, 0xc88030];
   const treeInterval = CONFIG.roadLength / PERF.treeCount;
 
   for (let x = -length / 2; x < length / 2; x += treeInterval) {
-    // Offset trees from exact grid for natural look
-    const jitterX = (Math.random() - 0.5) * 4;
+    const jitterX = (Math.random() - 0.5) * 5;
 
     for (const side of [-1, 1]) {
-      const distFromRoad = 3.5 + Math.random() * 6;
+      const distFromRoad = 5 + Math.random() * 8;
       const z = side * (halfW + distFromRoad);
-      const treeH = 1.5 + Math.random() * 3;
+      const treeH = 1.5 + Math.random() * 3.5;
+      const isDeciduous = Math.random() > 0.4;
+      const isAutumn = isDeciduous && Math.random() > 0.7;
 
-      // Trunk
-      const trunk = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.15, 0.2, treeH * 0.5, 6),
-        trunkMat
-      );
-      trunk.position.set(x + jitterX, treeH * 0.25, z);
-      trunk.castShadow = true;
-      worldGroup.add(trunk);
-
-      // Canopy layers
-      for (let layer = 0; layer < 3; layer++) {
-        const coneH = treeH * 0.35;
-        const coneR = treeH * (0.35 - layer * 0.08);
-        const cone = new THREE.Mesh(
-          new THREE.ConeGeometry(coneR, coneH, 7),
-          new THREE.MeshStandardMaterial({
-            color: foliageColors[Math.floor(Math.random() * foliageColors.length)],
-            roughness: 0.7,
-          })
+      if (isDeciduous) {
+        // Deciduous — round canopy
+        const trunk = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.12, 0.18, treeH * 0.55, 7),
+          trunkMatLight
         );
-        cone.position.set(x + jitterX, treeH * 0.45 + layer * coneH * 0.55, z);
-        cone.castShadow = true;
-        worldGroup.add(cone);
+        trunk.position.set(x + jitterX, treeH * 0.27, z);
+        trunk.castShadow = true;
+        worldGroup.add(trunk);
+
+        // Round canopy (2 overlapping spheres)
+        const canopyColors = isAutumn ? autumnColors : deciduousColors;
+        for (let s = 0; s < 2; s++) {
+          const canopy = new THREE.Mesh(
+            new THREE.SphereGeometry(treeH * 0.35 - s * 0.06, 8, 6),
+            new THREE.MeshStandardMaterial({
+              color: canopyColors[Math.floor(Math.random() * canopyColors.length)],
+              roughness: 0.8,
+            })
+          );
+          canopy.position.set(
+            x + jitterX + (Math.random() - 0.5) * 0.3,
+            treeH * 0.6 + s * treeH * 0.12,
+            z + (Math.random() - 0.5) * 0.3
+          );
+          canopy.castShadow = true;
+          worldGroup.add(canopy);
+        }
+      } else {
+        // Conical pine — existing style
+        const trunk = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.15, 0.2, treeH * 0.5, 6),
+          trunkMat
+        );
+        trunk.position.set(x + jitterX, treeH * 0.25, z);
+        trunk.castShadow = true;
+        worldGroup.add(trunk);
+
+        for (let layer = 0; layer < 3; layer++) {
+          const coneH = treeH * 0.35;
+          const coneR = treeH * (0.35 - layer * 0.08);
+          const cone = new THREE.Mesh(
+            new THREE.ConeGeometry(coneR, coneH, 7),
+            new THREE.MeshStandardMaterial({
+              color: pineColors[Math.floor(Math.random() * pineColors.length)],
+              roughness: 0.7,
+            })
+          );
+          cone.position.set(x + jitterX, treeH * 0.45 + layer * coneH * 0.55, z);
+          cone.castShadow = true;
+          worldGroup.add(cone);
+        }
       }
     }
   }
 
-  // ---- Distant mountains ----
-  const mountainMatDark = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, roughness: 0.9 });
-  const mountainMatSnow = new THREE.MeshStandardMaterial({ color: 0x8899aa, roughness: 0.7 });
+  // ---- Distant mountains with depth gradient ----
   for (let i = 0; i < PERF.mountainCount; i++) {
     const mx = (Math.random() - 0.5) * length;
-    const mz = (Math.random() > 0.5 ? 1 : -1) * (20 + Math.random() * 40);
+    const mz = (Math.random() > 0.5 ? 1 : -1) * (22 + Math.random() * 45);
     const mh = 15 + Math.random() * 40;
-    const mr = mh * 0.6;
-    const mountain = new THREE.Mesh(
-      new THREE.ConeGeometry(mr, mh, 8),
-      mountainMatDark
-    );
+    const mr = mh * 0.55 + Math.random() * 8;
+    // Depth: closer = brown, further = blue-grey (atmospheric perspective)
+    const depth = Math.abs(mz) / 60; // 0..~1
+    const r = Math.floor(60 + (1 - depth) * 80);
+    const g = Math.floor(50 + (1 - depth) * 60);
+    const b = Math.floor(40 + depth * 80);
+    const mtColor = new THREE.Color(`rgb(${r},${g},${b})`);
+    const mt = new THREE.MeshStandardMaterial({ color: mtColor, roughness: 0.85 });
+    const mountain = new THREE.Mesh(new THREE.ConeGeometry(mr, mh, 8), mt);
     mountain.position.set(mx, -mh * 0.3, mz);
     worldGroup.add(mountain);
 
-    // Snow cap on taller ones
     if (mh > 35) {
-      const snow = new THREE.Mesh(
-        new THREE.ConeGeometry(mr * 0.3, mh * 0.25, 8),
-        mountainMatSnow
-      );
+      const snowMat = new THREE.MeshStandardMaterial({ color: 0xd0dde8, roughness: 0.6 });
+      const snow = new THREE.Mesh(new THREE.ConeGeometry(mr * 0.3, mh * 0.22, 8), snowMat);
       snow.position.set(mx, mh * 0.35, mz);
       worldGroup.add(snow);
     }
   }
 
-  // ---- Small bushes / scrub ----
-  const bushMat = new THREE.MeshStandardMaterial({ color: 0x3a6b20, roughness: 0.8 });
-  for (let i = 0; i < PERF.bushCount; i++) {
+  // ---- Bushes — clustered in groups of 2-4 ----
+  const bushColors = [0x3a6b20, 0x4a7a2e, 0x558a35, 0x2d5a1a, 0x609040];
+  for (let i = 0; i < PERF.bushCount / 3; i++) {
     const bx = (Math.random() - 0.5) * length;
-    const bz = (Math.random() > 0.5 ? 1 : -1) * (halfW + 1.5 + Math.random() * 15);
-    const bush = new THREE.Mesh(
-      new THREE.SphereGeometry(0.3 + Math.random() * 0.5, 5, 4),
-      bushMat
-    );
-    bush.position.set(bx, 0.2, bz);
-    bush.scale.y = 0.6;
-    worldGroup.add(bush);
+    const bside = Math.random() > 0.5 ? 1 : -1;
+    const bz = bside * (halfW + 3 + Math.random() * 20);
+    const clusterSize = 2 + Math.floor(Math.random() * 3);
+    for (let j = 0; j < clusterSize; j++) {
+      const bushMat = new THREE.MeshStandardMaterial({
+        color: bushColors[Math.floor(Math.random() * bushColors.length)],
+        roughness: 0.8,
+      });
+      const bush = new THREE.Mesh(new THREE.SphereGeometry(0.25 + Math.random() * 0.4, 6, 5), bushMat);
+      bush.position.set(bx + (Math.random() - 0.5) * 1.5, 0.15 + Math.random() * 0.1, bz + (Math.random() - 0.5) * 1.5);
+      bush.scale.y = 0.55 + Math.random() * 0.15;
+      worldGroup.add(bush);
+    }
   }
 
-  // ---- Plains / ground planes on both sides ----
-  const plainMat = new THREE.MeshStandardMaterial({ color: 0x4a7a2e, roughness: 0.9 });
-  const plainWidth = 60;
-  for (const side of [-1, 1]) {
-    const plain = new THREE.Mesh(
-      new THREE.PlaneGeometry(length, plainWidth),
-      plainMat
+  // ---- Wildflowers near road verge ----
+  const flowerColors = [0xff4488, 0xffcc44, 0xff8800, 0xee4499, 0xffff66, 0xcc44ff, 0xff6666];
+  for (let i = 0; i < isMobile ? 100 : 300; i++) {
+    const fx = (Math.random() - 0.5) * length;
+    const fSide = Math.random() > 0.5 ? 1 : -1;
+    const fz = fSide * (halfW + 1.8 + Math.random() * 3);
+    const flower = new THREE.Mesh(
+      new THREE.SphereGeometry(0.04, 3, 2),
+      new THREE.MeshStandardMaterial({
+        color: flowerColors[Math.floor(Math.random() * flowerColors.length)],
+        emissive: flowerColors[Math.floor(Math.random() * flowerColors.length)],
+        emissiveIntensity: 0.3,
+        roughness: 0.5,
+      })
     );
-    plain.rotation.x = -Math.PI / 2;
-    plain.position.set(0, -0.1, side * (halfW + plainWidth / 2 + 1));
-    plain.receiveShadow = true;
-    worldGroup.add(plain);
+    flower.position.set(fx, 0.08 + Math.random() * 0.1, fz);
+    worldGroup.add(flower);
+  }
+
+  // ---- Plains / ground planes with color variation ----
+  for (const side of [-1, 1]) {
+    for (let col = 0; col < 6; col++) {
+      const colWidth = 10;
+      const greenShade = [0x4a7a2e, 0x558a3a, 0x3d6b22, 0x5a9040, 0x4a8030, 0x609545];
+      const colMat = new THREE.MeshStandardMaterial({
+        color: greenShade[col % greenShade.length],
+        roughness: 0.9,
+      });
+      const strip = new THREE.Mesh(new THREE.PlaneGeometry(length, colWidth), colMat);
+      strip.rotation.x = -Math.PI / 2;
+      strip.position.set(0, -0.1, side * (halfW + 4 + col * colWidth + colWidth / 2));
+      strip.receiveShadow = true;
+      worldGroup.add(strip);
+    }
   }
 
   // ---- Mounds / gentle hills ----
-  const moundColors = [0x5a8a3a, 0x4a7a2e, 0x6a9a44, 0x3d6b22];
+  const moundColors = [0x5a8a3a, 0x4a7a2e, 0x6a9a44, 0x3d6b22, 0x558a3a];
   for (let i = 0; i < PERF.moundCount; i++) {
     const mx = (Math.random() - 0.5) * length;
     const mside = Math.random() > 0.5 ? 1 : -1;
