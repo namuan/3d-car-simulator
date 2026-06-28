@@ -213,8 +213,8 @@
   #game-over {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.55);
-    backdrop-filter: blur(4px);
+    background: rgba(0,0,0,0.35);
+    backdrop-filter: blur(3px);
     display: none;
     justify-content: flex-end;
     align-items: center;
@@ -1529,11 +1529,11 @@ function triggerGameOver() {
   controls.enabled = false;
   gameOverAngle = 0;
 
-  // Show game over with a 1-second delay
+  // Show game over with a 3-second delay — enjoy the fire
   setTimeout(() => {
     document.getElementById('final-score').textContent = Math.round(score);
     document.getElementById('game-over').classList.add('active');
-  }, 1000);
+  }, 3000);
 }
 
 function restartGame() {
