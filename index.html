@@ -320,9 +320,9 @@
     #controls {
       bottom: calc(env(safe-area-inset-bottom, 4px) + 4px);
       padding: 10px 14px; gap: 10px; border-radius: 12px;
-      opacity: 0; transition: opacity 0.3s; pointer-events: none;
+      display: none;
     }
-    #controls.visible { opacity: 1; pointer-events: auto; }
+    #controls.visible { display: flex; }
 
     /* Game over — keep overlay readable */
     #game-over { padding-bottom: 80px; }
