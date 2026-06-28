@@ -25,6 +25,9 @@ jspm_packages/
 *.log
 npm-debug.log*
 
+# Test results
+test-results/
+
 # Env
 .env
 .env.local
