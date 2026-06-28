@@ -1498,24 +1498,25 @@ function triggerGameOver() {
 
   fireGroup = new THREE.Group();
   const firePos = playerCar.mesh.position.clone();
-  firePos.y += 0.5;
+  firePos.y += 1.0;
   fireGroup.position.copy(firePos);
   const flameColors = [0xff2200, 0xff6600, 0xffaa00, 0xffcc00];
-  for (let i = 0; i < 10; i++) {
-    const geom = new THREE.ConeGeometry(0.15 + Math.random() * 0.2, 0.4 + Math.random() * 0.6, 6);
+  for (let i = 0; i < 14; i++) {
+    const geom = new THREE.ConeGeometry(0.3 + Math.random() * 0.4, 0.6 + Math.random() * 1.2, 8);
     const mat = new THREE.MeshStandardMaterial({
       color: flameColors[Math.floor(Math.random() * flameColors.length)],
       emissive: flameColors[Math.floor(Math.random() * flameColors.length)],
-      emissiveIntensity: 0.9,
-      roughness: 0.3,
+      emissiveIntensity: 1.2,
+      roughness: 0.2,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.9,
     });
     const flame = new THREE.Mesh(geom, mat);
-    flame.position.set((Math.random() - 0.5) * 1.2, Math.random() * 0.6, (Math.random() - 0.5) * 1.2);
-    flame.userData = { baseY: flame.position.y, speed: 0.3 + Math.random() * 0.7, phase: Math.random() * Math.PI * 2 };
+    flame.position.set((Math.random() - 0.5) * 1.5, Math.random() * 0.8, (Math.random() - 0.5) * 2.0);
+    flame.userData = { baseY: flame.position.y, speed: 0.4 + Math.random() * 0.8, phase: Math.random() * Math.PI * 2 };
     fireGroup.add(flame);
   }
+  console.log('🔥 Fire at', fireGroup.position.toArray().map(v => v.toFixed(1)));
   scene.add(fireGroup);
 
   // Show game over with a 1-second delay
