@@ -433,7 +433,7 @@ let gameOver = false;
 let score = 0;
 let lastProgress = 0;
 let viewMode = 'top'; // 'top' or 'fpv'
-let chaseDistance = 14;  // camera distance behind player (top view)
+let chaseDistance = 14;
 // Keyboard state
 const keys = { w: false, s: false, a: false, d: false, arrowup: false, arrowdown: false, arrowleft: false, arrowright: false };
 
@@ -894,26 +894,17 @@ document.addEventListener('keydown', (e) => {
 function toggleView() {
   viewMode = viewMode === 'top' ? 'fpv' : 'top';
   document.getElementById('btn-view').textContent = viewMode === 'top' ? '🎥 FPV' : '🔝 Top';
-  if (viewMode === 'top') {
-    controls.enabled = false;
-    if (playerCar) {
-      const pos = playerCar.mesh.position.clone();
-      const dir = playerCar.lane.dirVec.clone();
-      camera.position.copy(pos.clone().add(dir.clone().multiplyScalar(-chaseDistance)).add(new THREE.Vector3(0, chaseDistance * 0.7, 0)));
-      camera.lookAt(pos);
-    }
-  } else {
-    controls.enabled = true;
+  controls.enabled = viewMode === 'fpv';
+  if (viewMode === 'top' && playerCar) {
+    // Position the camera behind and above the player
+    const pos = playerCar.mesh.position.clone();
+    const dir = playerCar.lane.dirVec.clone();
+    const offset = dir.clone().multiplyScalar(-chaseDistance).add(new THREE.Vector3(0, chaseDistance * 0.7, 0));
+    camera.position.copy(pos.clone().add(offset));
+    controls.target.copy(pos);
+    controls.update();
   }
 }
-
-// Chase cam zoom via scroll wheel
-document.addEventListener('wheel', (e) => {
-  if (viewMode === 'top' && playerCar) {
-    chaseDistance = Math.max(4, Math.min(40, chaseDistance + e.deltaY * 0.02));
-    e.preventDefault();
-  }
-}, { passive: false });
 
 document.addEventListener('keydown', (e) => {
   if (e.key.toLowerCase() === 'v' && !e.repeat) {
@@ -1404,14 +1395,10 @@ function animate(time) {
         .add(new THREE.Vector3(0, 1.5, 0));
       camera.lookAt(lookTarget);
     } else {
-      // Top-down chase cam — follows behind and above the player
+      // Top-down view — orbit controls follow the player
       const pos = playerCar.mesh.position.clone();
-      const dir = playerCar.lane.dirVec.clone();
-      const idealCamPos = pos.clone()
-        .add(dir.clone().multiplyScalar(-chaseDistance))
-        .add(new THREE.Vector3(0, chaseDistance * 0.7, 0));
-      camera.position.lerp(idealCamPos, 0.06);
-      camera.lookAt(pos);
+      controls.target.lerp(pos, 0.08);
+      controls.update();
     }
   }
 
