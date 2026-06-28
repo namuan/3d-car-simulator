@@ -175,6 +175,19 @@
   }
   #speed-gauge .mph.warn { color: #ff9944; }
   #speed-gauge .mph.danger { color: #ff3333; }
+  #speed-gauge .mph.overspeed { color: #ff4400; text-shadow: 0 0 20px rgba(255,68,0,0.6); }
+  #speed-gauge .overspeed-label {
+    display: none;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #ff4400;
+    margin-top: 2px;
+    animation: pulse 0.5s ease-in-out infinite alternate;
+  }
+  #speed-gauge .overspeed-label.active { display: block; }
+  @keyframes pulse { from { opacity: 0.5; } to { opacity: 1; } }
   #speed-gauge .label {
     font-size: 10px;
     text-transform: uppercase;
@@ -274,6 +287,7 @@
   <div id="speed-gauge">
     <div class="mph" id="mph-display">0</div>
     <div class="label">mph</div>
+    <div class="overspeed-label" id="overspeed-label">⚠ OVERSPEED</div>
   </div>
 
   <!-- Lane indicator -->
@@ -340,7 +354,7 @@ const CONFIG = {
   playerColor: 0x00ccff,
   playerAccel: 14,
   playerBrake: 22,
-  playerMaxSpeed: 28,
+  playerMaxSpeed: 120,
   minSafeSpeed: 10,    // mph threshold before underspeed penalty
   // Tunnel config
   tunnelHeight: 5.5,
@@ -1033,7 +1047,7 @@ function updatePlayer(dt) {
 
   // Acceleration / braking
   if (isAccel()) {
-    playerCar.speed = Math.min(playerCar.speed + CONFIG.playerAccel * dt, CONFIG.playerMaxSpeed);
+    playerCar.speed += CONFIG.playerAccel * dt;
   } else if (isBrake()) {
     playerCar.speed = Math.max(playerCar.speed - CONFIG.playerBrake * dt, 0);
   } else {
@@ -1041,7 +1055,7 @@ function updatePlayer(dt) {
     playerCar.speed = Math.max(playerCar.speed - 2 * dt, 0);
   }
 
-  // Under-speed glow warning
+  // Speed warnings — under-speed glow & overspeed penalty
   const mph = playerCar.speed * 2.237;
   const ring = playerCar.mesh.children.find(c => c.userData.isMarker);
   if (ring) {
@@ -1049,11 +1063,21 @@ function updatePlayer(dt) {
       ring.material.color.setHex(0xff4444);
       ring.material.emissive.setHex(0xff4444);
       ring.material.emissiveIntensity = 0.6 + Math.sin(performance.now() * 0.01) * 0.4;
+    } else if (mph > 70) {
+      ring.material.color.setHex(0xff8800);
+      ring.material.emissive.setHex(0xff8800);
+      ring.material.emissiveIntensity = 0.5 + Math.sin(performance.now() * 0.01) * 0.3;
     } else {
       ring.material.color.setHex(0x00ccff);
       ring.material.emissive.setHex(0x00ccff);
       ring.material.emissiveIntensity = 0.5;
     }
+  }
+
+  // Overspeed penalty — deduct points when exceeding 70 mph
+  const OVERSPEED_LIMIT = 70;
+  if (mph > OVERSPEED_LIMIT) {
+    score -= (mph - OVERSPEED_LIMIT) * dt * 2;
   }
 
   // Brake lights
@@ -1108,7 +1132,9 @@ function updatePlayer(dt) {
   // Update UI
   document.getElementById('mph-display').textContent = Math.round(mph);
   const mphEl = document.getElementById('mph-display');
-  mphEl.className = 'mph' + (mph < CONFIG.minSafeSpeed ? ' warn' : '');
+  const isOverspeed = mph > 70;
+  mphEl.className = 'mph' + (isOverspeed ? ' overspeed' : mph < CONFIG.minSafeSpeed ? ' warn' : '');
+  document.getElementById('overspeed-label').classList.toggle('active', isOverspeed);
   document.getElementById('score').textContent = Math.round(score);
   document.getElementById('lane-dot-0').classList.toggle('active', playerCar.lane === laneDefs[0]);
   document.getElementById('lane-dot-1').classList.toggle('active', playerCar.lane === laneDefs[1]);
@@ -1152,6 +1178,7 @@ function restartGame() {
   document.getElementById('game-over').classList.remove('active');
   document.getElementById('mph-display').textContent = '0';
   document.getElementById('mph-display').className = 'mph';
+  document.getElementById('overspeed-label').classList.remove('active');
   document.getElementById('score').textContent = '0';
 
   // Create player and initial traffic
