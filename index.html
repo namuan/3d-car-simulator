@@ -196,6 +196,19 @@
     margin-top: 4px;
   }
 
+  /* --- Tunnel end warning --- */
+  #tunnel-warning {
+    position: fixed; top: 8px; left: 50%; transform: translateX(-50%);
+    background: rgba(255,40,0,0.85); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,80,40,0.5); border-radius: 10px;
+    padding: 8px 20px; font-size: 14px; font-weight: 700;
+    color: #fff; z-index: 20; white-space: nowrap;
+    display: none; text-align: center;
+    animation: warnPulse 0.5s ease-in-out infinite alternate;
+  }
+  #tunnel-warning.active { display: block; }
+  @keyframes warnPulse { from { background: rgba(255,40,0,0.85); } to { background: rgba(255,60,20,0.9); } }
+
   /* --- Game Over overlay --- */
   #game-over {
     position: fixed;
@@ -302,6 +315,8 @@
 <body>
 
 <div id="ui">
+  <!-- Tunnel end warning -->
+  <div id="tunnel-warning">⚠ Tunnel end ahead — Slow down! Congestion ahead</div>
   <!-- Top bar -->
   <div id="top-bar">
     <span class="title">🏎️ Tunnel Runner</span>
@@ -1223,6 +1238,18 @@ function updatePlayer(dt) {
     score = Math.max(0, score - (mph - OVERSPEED_LIMIT) * dt * 0.5);
   }
 
+  // Tunnel end warning — alert when approaching the wrap point
+  const distToEnd = playerCar.lane.length - playerCar.progress;
+  const WARN_DISTANCE = 400;
+  const warningEl = document.getElementById('tunnel-warning');
+  if (distToEnd < WARN_DISTANCE) {
+    const metersLeft = Math.round(distToEnd);
+    warningEl.textContent = `⚠ Tunnel end in ${metersLeft}m — Slow down! Congestion ahead`;
+    warningEl.classList.add('active');
+  } else {
+    warningEl.classList.remove('active');
+  }
+
   // Brake lights
   const rawBrake = (playerCar.prevSpeed - playerCar.speed) / (CONFIG.playerBrake * dt + 0.001);
   playerCar.brakeIntensity = Math.max(0, Math.min(rawBrake, 1));
@@ -1411,6 +1438,16 @@ function updateCars(dt, simSpeed) {
     const lane = car.lane;
 
     let desired = car.targetSpeed;
+
+    // 0. Congestion near tunnel wrap point — cars slow down approaching the end
+    const distToWrap = lane.length - car.progress;
+    if (distToWrap < 350) {
+      const congestionFactor = Math.max(0.3, distToWrap / 350);
+      desired = Math.min(desired, car.targetSpeed * congestionFactor);
+      if (distToWrap < 100) {
+        car.slowdownTimer = Math.max(car.slowdownTimer, 0.5);
+      }
+    }
 
     // 1. Random slowdown event (originates a braking shockwave)
     if (car.slowdownTimer > 0) {
