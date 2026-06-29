@@ -1,8 +1,8 @@
-# 🏎️ Scenic Route
+# 🏎️ Highway Runner
 
 A 3D driving game built with **Three.js**. Cruise along a scenic mountain highway, navigate traffic, and survive as long as you can — the longer you drive, the harder it gets.
 
-![Scenic Route Screenshot](screenshot.png)
+![Highway Runner Screenshot](screenshot.png)
 
 ## 🎮 How to Play
 
