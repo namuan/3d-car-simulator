@@ -2036,14 +2036,8 @@ function updatePlayer(dt) {
   // Engine sound
   updateEngineSound(playerCar.speed);
 
-  // Speed — under-speed warning & overspeed penalty
+  // Speed — under-speed and overspeed warning states
   const mph = playerCar.speed * 2.237;
-
-  // Overspeed penalty — deduct points when exceeding 70 mph
-  const OVERSPEED_LIMIT = 70;
-  if (mph > OVERSPEED_LIMIT) {
-    score = Math.max(0, score - (mph - OVERSPEED_LIMIT) * dt * 0.5);
-  }
 
   // Brake lights
   const rawBrake = (playerCar.prevSpeed - playerCar.speed) / (CONFIG.playerBrake * dt + 0.001);
