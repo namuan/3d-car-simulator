@@ -85,7 +85,8 @@
   /* Bottom controls panel */
   #controls {
     position: absolute;
-    bottom: 72px; left: 24px;
+    bottom: 24px; left: 24px;
+    z-index: 25;
     transform: none;
     background: rgba(0,0,0,0.75);
     backdrop-filter: blur(16px);
@@ -1694,9 +1695,10 @@ function setupTouchControls() {
     return;
   }
   const tc = document.getElementById('touch-controls');
+  const mobileControls = document.getElementById('controls');
   tc.style.display = 'block';
   // Show mobile controls hint, hide desktop
-  document.getElementById('controls').querySelector('span').textContent = '⚙️ Tap for controls';
+  mobileControls.querySelector('span').textContent = '⚙️ Tap for controls';
 
   // Unlock audio on first touch anywhere
   document.body.addEventListener('touchstart', () => ensureAudio(), { once: true });
@@ -1741,13 +1743,37 @@ function setupTouchControls() {
   });
   leftZone.addEventListener('touchstart', (e) => { e.preventDefault(); });
 
-  // Toggle controls bar visibility on double-tap
+  // Toggle controls bar visibility on double-tap, then auto-hide so it
+  // doesn't block the driving view on small screens.
   let lastTap = 0;
+  let controlsHideTimer;
+
+  function scheduleControlsAutoHide(delay = 4000) {
+    clearTimeout(controlsHideTimer);
+    controlsHideTimer = setTimeout(() => {
+      mobileControls.classList.remove('visible');
+    }, delay);
+  }
+
+  mobileControls.addEventListener('pointerdown', () => {
+    scheduleControlsAutoHide();
+  });
+
+  mobileControls.addEventListener('click', (e) => {
+    if (e.target.closest('button')) scheduleControlsAutoHide(700);
+  });
+
   document.addEventListener('pointerdown', (e) => {
     if (e.target.closest('#touch-controls')) return; // don't toggle from control zones
+    if (e.target.closest('#controls')) return; // don't double-toggle while using buttons
     const now = Date.now();
     if (now - lastTap < 300) {
-      document.getElementById('controls').classList.toggle('visible');
+      mobileControls.classList.toggle('visible');
+      if (mobileControls.classList.contains('visible')) {
+        scheduleControlsAutoHide();
+      } else {
+        clearTimeout(controlsHideTimer);
+      }
     }
     lastTap = now;
   });
